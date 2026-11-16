@@ -1,11 +1,12 @@
+
 pipeline {
     agent any
 
     environment {
         DOCKER_CREDENTIALS_ID = 'docker-cred'
-        DOCKER_IMAGE          = 'imalfas/maker'// Format: username/maker
-        SONAR_SERVER_NAME     = 'sonarqube-env' 
-        SONAR_SCANNER_TOOL    = 'sonarscanner'     
+        DOCKER_IMAGE          = 'imalfas/maker'
+        SONAR_SERVER_NAME     = 'sonarqube-env'
+        SONAR_SCANNER_TOOL    = 'sonarscanner'
         GIT_CREDENTIALS_ID    = 'github-cred'
         MANIFEST_REPO         = 'https://github.com/imalfas/maker-file.git'
         MANIFEST_BRANCH       = 'main'
@@ -14,7 +15,7 @@ pipeline {
     stages {
         stage('Checkout Source Code') {
             steps {
-                echo passed
+                echo 'Checkout completed successfully!'
             }
         }
 
@@ -23,10 +24,12 @@ pipeline {
                 script {
                     def scannerHome = tool "${SONAR_SCANNER_TOOL}"
                     withSonarQubeEnv("${SONAR_SERVER_NAME}") {
-                        sh "${scannerHome}/bin/sonar-scanner \
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=maker-key \
                             -Dsonar.projectName=maker-project \
-                            -Dsonar.sources=."
+                            -Dsonar.sources=.
+                        """
                     }
                 }
             }
@@ -36,9 +39,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS_ID}") {
-                        // Builds and pushes your-dockerhub-username/maker:<BUILD_NUMBER> and :latest
-                        def appImage = docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
-                        appImage.build()
+                        def appImage = docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
                         appImage.push()
                         appImage.push('latest')
                     }
@@ -49,12 +50,13 @@ pipeline {
         stage('Update Manifest Repo') {
             steps {
                 dir('manifest-workspace') {
-                    git branch: "${MANIFEST_BRANCH}", credentialsId: "${GIT_CREDENTIALS_ID}", url: "${MANIFEST_REPO}"
+                    git branch: "${MANIFEST_BRANCH}",
+                        credentialsId: "${GIT_CREDENTIALS_ID}",
+                        url: "${MANIFEST_REPO}"
 
                     sh """
-                        # Updates the 'maker' container image tag to your-dockerhub-username/maker:<BUILD_NUMBER>
-                        sed -i '/name: maker/{n;s|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|}' k8s/deployment.yaml
-                        
+                        sed -i '/name: maker/{n;s|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|}' manifests/deployment.yaml
+
                         git -c user.name='imalfas' -c user.email='muhammadalfas9946@gmail.com' commit -am "chore(manifest): update maker image tag to ${env.BUILD_NUMBER} [skip ci]"
                         git push origin ${MANIFEST_BRANCH}
                     """
