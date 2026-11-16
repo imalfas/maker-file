@@ -54,12 +54,18 @@ pipeline {
                         credentialsId: "${GIT_CREDENTIALS_ID}",
                         url: "${MANIFEST_REPO}"
 
-                    sh """
-                        sed -i '/name: maker/{n;s|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|}' manifests/deployment.yaml
+                    withCredentials([gitUsernamePassword(
+    credentialsId: "${GIT_CREDENTIALS_ID}",
+    gitToolName: 'Default'
+)]) {
+    sh """
+        sed -i '/name: maker/{n;s|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|}' manifests/deployment.yaml
 
-                        git -c user.name='imalfas' -c user.email='muhammadalfas9946@gmail.com' commit -am "chore(manifest): update maker image tag to ${env.BUILD_NUMBER} [skip ci]"
-                        git push origin ${MANIFEST_BRANCH}
-                    """
+        git -c user.name='imalfas' -c user.email='muhammadalfas9946@gmail.com' commit -am "chore(manifest): update maker image tag to ${env.BUILD_NUMBER} [skip ci]"
+
+        git push origin ${MANIFEST_BRANCH}
+    """
+}
                 }
             }
         }
