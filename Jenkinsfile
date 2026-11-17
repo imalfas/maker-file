@@ -77,16 +77,19 @@ pipeline {
                     ])
 
                     sh """
-                        sed -i '/name: maker/{n;s|image:.*|image: imalfas/maker:${env.BUILD_NUMBER}|}' manifests/deployment.yaml
+                        sed -i 's|image: IMAGE_PLACEHOLDER|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' manifests/deployment.yaml
 
                         git config user.name "imalfas"
                         git config user.email "muhammadalfas9946@gmail.com"
 
                         git add manifests/deployment.yaml
 
-                        git commit -m "Update maker image to ${env.BUILD_NUMBER}" || echo "No changes to commit"
-
-                        git push origin HEAD:${MANIFEST_BRANCH}
+                        if ! git diff --cached --quiet; then
+                            git commit -m "Update maker image to ${env.BUILD_NUMBER}"
+                            git push origin HEAD:${MANIFEST_BRANCH}
+                        else
+                            echo "No manifest changes to commit"
+                        fi
                     """
                 }
             }
