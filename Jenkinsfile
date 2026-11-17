@@ -16,7 +16,7 @@ pipeline {
 
         stage('Checkout Source Code') {
             steps {
-                echo "passed"
+                echo "Source code checked out successfully"
             }
         }
 
@@ -37,7 +37,7 @@ pipeline {
             }
         }
 
-        stage('Build & Post Docker Image') {
+        stage('Build & Push Docker Image') {
             steps {
                 script {
                     withCredentials([
@@ -76,21 +76,30 @@ pipeline {
                         ]]
                     ])
 
-                    sh """
-                        sed -i 's|image: IMAGE_PLACEHOLDER|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' manifests/deployment.yaml
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${GIT_CREDENTIALS_ID}",
+                            usernameVariable: 'GIT_USERNAME',
+                            passwordVariable: 'GIT_TOKEN'
+                        )
+                    ]) {
+                        sh """
+                            sed -i 's|image: IMAGE_PLACEHOLDER|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' manifests/deployment.yaml
 
-                        git config user.name "imalfas"
-                        git config user.email "muhammadalfas9946@gmail.com"
+                            git config user.name "imalfas"
+                            git config user.email "muhammadalfas9946@gmail.com"
 
-                        git add manifests/deployment.yaml
+                            git add manifests/deployment.yaml
 
-                        if ! git diff --cached --quiet; then
-                            git commit -m "Update maker image to ${env.BUILD_NUMBER}"
-                            git push origin HEAD:${MANIFEST_BRANCH}
-                        else
-                            echo "No manifest changes to commit"
-                        fi
-                    """
+                            if ! git diff --cached --quiet; then
+                                git commit -m "Update maker image to ${env.BUILD_NUMBER}"
+
+                                git push https://\${GIT_USERNAME}:\${GIT_TOKEN}@github.com/imalfas/maker-file.git HEAD:${MANIFEST_BRANCH}
+                            else
+                                echo "No manifest changes to commit"
+                            fi
+                        """
+                    }
                 }
             }
         }
@@ -106,3 +115,5 @@ pipeline {
         }
     }
 }
+
+
